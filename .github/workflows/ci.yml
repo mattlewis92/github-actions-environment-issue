@@ -13,21 +13,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [foo, bar, bam]
+        app: [{ name: foo, runner: ubuntu-latest }, { name: bar, runner: ubuntu-latest }]
     steps:
-      - run: echo 'build ${{ matrix.app }}'
+      - run: echo 'build ${{ matrix.app.name }}'
   deploy:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        app: [foo, bar, bam]
+        app: [{ name: 'foo', environment: 'clickup/pull-request' }, { name: 'bar', environment: 'clickup/pull-request' }]
     environment: 
-      name: test
+      name: ${{ matrix.app.environment }}
       url: https://foo.com
     needs: [build]
     steps:
-     - run: echo 'deploy ${{ matrix.app }}'
+     - run: echo 'deploy ${{ matrix.app.name }}'
   final:
     runs-on: ubuntu-latest
     if: always()
