@@ -1,0 +1,51 @@
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [foo, bar, bam]
+    steps:
+      - run: echo 'build ${{ matrix.app }}'
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+    needs: [build]
+    steps:
+      # As we use the same environment for all apps, github will create a deployment for each app
+      # This leads to some confusing behavior in the github UI where it shows previous deploys as "temporarily deployed"
+      # So we hack around this issue delete the duplicate deployments that are marked as inactive and only keep a single deployment
+      - name: Delete duplicate deploys
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
+        with:
+          script: |
+            const { data: deployments } = await github.rest.repos.listDeployments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: '${{ github.event.pull_request.head.sha || github.sha }}'
+            });
+
+            for await (const deployment of deployments) {
+              const { data: statuses } = await github.rest.repos.listDeploymentStatuses({
+                deployment_id: deployment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              console.log(`Deployment: ${deployment.id}, statuses: ${statuses.map(status => status.state).join(', ')}`);
+              if (statuses.some(status => status.state === 'inactive')) {
+                console.log(`Deleting deployment: ${deployment.id}`);
+                await github.rest.repos.deleteDeployment({
+                  deployment_id: deployment.id,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                })
+              } else {
+                console.log(`Keeping deployment: ${deployment.id}`);
+              }
+            }
