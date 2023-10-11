@@ -4,10 +4,12 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: test
     strategy:
       fail-fast: false
       matrix:
@@ -16,9 +18,22 @@ jobs:
       - run: echo 'build ${{ matrix.app }}'
   deploy:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [foo, bar, bam]
+    environment: 
+      name: test
+      url: https://foo.com
+    needs: [build]
+    steps:
+     - run: echo 'deploy ${{ matrix.app }}'
+  final:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [deploy]
     permissions:
       deployments: write
-    needs: [build]
     steps:
       # As we use the same environment for all apps, github will create a deployment for each app
       # This leads to some confusing behavior in the github UI where it shows previous deploys as "temporarily deployed"
